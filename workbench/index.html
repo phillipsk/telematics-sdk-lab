@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telematics SDK Workbench — Interactive Simulator &amp; Live Phone Stream</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <h1>Telematics SDK Workbench</h1>
+        <p class="subtitle">Physics Simulation • Live USB Device Stream • Real Drive Replay</p>
+      </div>
+    </div>
+
+    <div class="mode-tabs" role="tablist" aria-label="Workbench Modes">
+      <button type="button" class="mode-btn active" data-mode="sim">1. Offline Simulator</button>
+      <button type="button" class="mode-btn" data-mode="usb">2. Live Phone USB</button>
+      <button type="button" class="mode-btn" data-mode="replay">3. Replay Real Drive</button>
+    </div>
+
+    <div class="topbar-status">
+      <button type="button" id="themeToggleBtn" class="btn btn-xs btn-ghost" title="Cycle Auto / Light / Dark theme">Theme: Auto</button>
+      <span id="connectionPill" class="pill pill-cyan">OFFLINE SIM READY</span>
+      <span id="fsmHeaderPill" class="pill pill-slate">IDLE</span>
+    </div>
+  </header>
+
+  <main class="workbench-grid">
+    <!-- LEFT PANE: VISUAL WORLD, 3D PHONE ORIENTATION, SCENARIOS / REPLAY -->
+    <section class="pane pane-left">
+
+      <!-- MODE 1: OFFLINE SIMULATOR LEFT PANE -->
+      <div id="leftSimPanel" class="stack">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Interactive Road Course &amp; GNSS Environment</h2>
+              <span class="muted">WASD / Arrows to drive • Space = Hard Brake • Tunnel drops GNSS</span>
+            </div>
+            <div class="row gap-sm">
+              <button type="button" id="autoCruiseBtn" class="btn btn-primary">Auto-Cruise: ON</button>
+              <button type="button" id="resetSimBtn" class="btn btn-ghost">Reset</button>
+            </div>
+          </div>
+
+          <div class="vehicle-bar">
+            <span class="label">VEHICLE SKIN:</span>
+            <div class="row gap-xs" id="vehicleSkinGroup">
+              <button type="button" class="btn btn-xs skin-btn active" data-skin="ev_suv">EV SUV</button>
+              <button type="button" class="btn btn-xs skin-btn" data-skin="coupe">Sports Coupe</button>
+              <button type="button" class="btn btn-xs skin-btn" data-skin="sedan">Sedan</button>
+              <button type="button" class="btn btn-xs skin-btn" data-skin="pickup">Pickup Truck</button>
+              <button type="button" class="btn btn-xs skin-btn" data-skin="fleet_van">Fleet Van</button>
+            </div>
+          </div>
+
+          <canvas id="roadCourseCanvas" width="700" height="390"></canvas>
+
+          <div class="drive-hud">
+            <div class="hud-stat">
+              <span class="label">SPEED</span>
+              <strong id="simSpeedVal">0 mph</strong>
+            </div>
+            <div class="hud-stat">
+              <span class="label">DISTANCE</span>
+              <strong id="simDistVal">0.00 mi</strong>
+            </div>
+            <div class="hud-stat">
+              <span class="label">GNSS SATS</span>
+              <strong id="simGnssVal">14 / ±4m</strong>
+            </div>
+            <div class="hud-stat">
+              <span class="label">TRAFFIC LIGHT</span>
+              <strong id="simLightVal">GREEN</strong>
+            </div>
+          </div>
+
+          <div class="scenario-bar">
+            <span class="label">INJECT EDGE SCENARIOS:</span>
+            <div class="chip-row">
+              <button type="button" class="chip-btn" data-scenario="hard_brake">Hard Brake</button>
+              <button type="button" class="chip-btn" data-scenario="harsh_turn">Harsh Corner</button>
+              <button type="button" class="chip-btn chip-green" data-scenario="phone_drop">Phone Drop (Reject)</button>
+              <button type="button" class="chip-btn chip-red" data-scenario="collision">Collision Δv (Confirm)</button>
+              <button type="button" class="chip-btn chip-amber" data-scenario="tunnel">Enter Tunnel (Dead Zone)</button>
+              <button type="button" class="chip-btn" data-scenario="red_light">Red Light Stop</button>
+              <button type="button" class="chip-btn chip-purple" data-scenario="handheld">Handheld Pickup</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>3D Phone Frame -&gt; Vehicle Frame Invariance</h2>
+              <span class="muted">Rotate the virtual phone mid-drive; watch Raw Phone X/Y/Z scramble while Car Long/Lat stays locked</span>
+            </div>
+            <div class="row gap-xs">
+              <button type="button" class="btn btn-xs preset-btn" data-preset="dash">Dash Mount</button>
+              <button type="button" class="btn btn-xs preset-btn" data-preset="cup">Cupholder</button>
+              <button type="button" class="btn btn-xs preset-btn" data-preset="pocket">Pocket</button>
+            </div>
+          </div>
+
+          <div class="tilt-split">
+            <canvas id="phone3dCanvasSim" width="240" height="200"></canvas>
+            <div class="tilt-controls">
+              <label>Pitch (Mount Tilt): <span id="pitchReadout">55°</span>
+                <input type="range" id="pitchSlider" min="-85" max="85" value="55" />
+              </label>
+              <label>Roll (Side Tilt): <span id="rollReadout">10°</span>
+                <input type="range" id="rollSlider" min="-85" max="85" value="10" />
+              </label>
+              <label>Mount Yaw Offset: <span id="yawReadout">25°</span>
+                <input type="range" id="yawSlider" min="-180" max="180" value="25" />
+              </label>
+              <div class="mini-readouts">
+                <div><span class="label">RAW PHONE (g)</span><code id="rawPhoneReadout">+0.00, +0.00, +1.00</code></div>
+                <div><span class="label">CAR FRAME (g)</span><code id="carFrameReadout">Long +0.00 | Lat +0.00</code></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE 2: LIVE PHONE USB LEFT PANE -->
+      <div id="leftUsbPanel" class="stack hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Live USB Phone Stream (127.0.0.1:8765)</h2>
+              <span class="muted">Streams real IMU, GNSS, 3D orientation &amp; SDK diagnostics from your Android device</span>
+            </div>
+            <button type="button" id="usbReconnectBtn" class="btn btn-primary">Connect Stream</button>
+          </div>
+
+          <div id="usbBanner" class="callout callout-info">
+            Run <code>adb forward tcp:8765 tcp:8765</code> (or use <code>./launch-workbench.sh</code>) with Telematics Lab open on your phone.
+          </div>
+
+          <div class="tilt-split">
+            <canvas id="phone3dCanvasUsb" width="260" height="220"></canvas>
+            <div class="usb-metrics-grid">
+              <div class="metric-box"><span class="label">DEVICE</span><strong id="usbDeviceVal">--</strong></div>
+              <div class="metric-box"><span class="label">SPEED</span><strong id="usbSpeedVal">0 mph</strong></div>
+              <div class="metric-box"><span class="label">GNSS SATS / ACC</span><strong id="usbGnssVal">--</strong></div>
+              <div class="metric-box"><span class="label">PITCH / ROLL</span><strong id="usbTiltVal">0° / 0°</strong></div>
+              <div class="metric-box"><span class="label">MOUNT / SCREEN</span><strong id="usbMountVal">--</strong></div>
+              <div class="metric-box"><span class="label">IMU RATE</span><strong id="usbHzVal">0 Hz</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Pull Recorded Trips from Phone</h2>
+              <span class="muted">Fetch saved drives from your phone over USB and open in Replay mode</span>
+            </div>
+            <button type="button" id="pullTripsBtn" class="btn btn-ghost">Refresh Phone Trips</button>
+          </div>
+          <div id="phoneTripsList" class="trip-list-box">
+            <p class="muted">Connect to USB stream or click Refresh Phone Trips.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE 3: REPLAY REAL DRIVE LEFT PANE -->
+      <div id="leftReplayPanel" class="stack hidden">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Real Drive Replay (JSON / CSV)</h2>
+              <span class="muted">Drop any trip exported from Telematics Lab or load the built-in sample trip</span>
+            </div>
+            <button type="button" id="loadSampleReplayBtn" class="btn btn-ghost">Load Sample Drive</button>
+          </div>
+
+          <label id="dropZone" class="drop-zone">
+            <input type="file" id="tripFileInput" accept=".json,.csv" hidden />
+            <strong>Drop exported .JSON or .CSV trip file here</strong> — or click to browse
+          </label>
+
+          <canvas id="replayMapCanvas" width="700" height="330"></canvas>
+
+          <div class="replay-controls">
+            <button type="button" id="replayPlayBtn" class="btn btn-primary">Play</button>
+            <select id="replaySpeedSelect" aria-label="Playback speed">
+              <option value="1">1x</option>
+              <option value="2" selected>2x</option>
+              <option value="5">5x</option>
+            </select>
+            <input type="range" id="replayScrub" min="0" max="100" value="0" />
+            <span id="replayTimeVal" class="mono">0s / 0s</span>
+          </div>
+
+          <div class="drive-hud">
+            <div class="hud-stat"><span class="label">TRIP / SEAT</span><strong id="replayMetaVal">--</strong></div>
+            <div class="hud-stat"><span class="label">TRIP SCORE</span><strong id="replayScoreVal">--</strong></div>
+            <div class="hud-stat"><span class="label">DISTANCE</span><strong id="replayDistVal">--</strong></div>
+            <div class="hud-stat"><span class="label">CODEC (GZIP)</span><strong id="replayCodecVal">--</strong></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>Cloud Saved Drives (GCS Archive)</h2>
+              <span class="muted">Trips uploaded from your phone automatically appear here in JSON, CSV &amp; GPX</span>
+            </div>
+            <button type="button" id="refreshCloudTripsBtn" class="btn btn-ghost">Refresh Cloud</button>
+          </div>
+          <div id="cloudTripsList" class="trip-list-box">
+            <p class="muted">Click Refresh Cloud to check cloud-synced drives.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANE: LIVE TELEMATICS SDK GRAPHS & ARCHITECTURE DIAGNOSTICS -->
+    <section class="pane pane-right stack">
+      <!-- ROW 1: G-G FRICTION CIRCLE + OSCILLOSCOPE -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>G-G Friction Circle</h2>
+            <span id="ggHeadingBadge" class="pill pill-teal">Heading 0°</span>
+          </div>
+          <canvas id="ggCircleCanvas" width="320" height="250"></canvas>
+          <div class="mini-grid-3">
+            <div class="metric-box"><span class="label">LONG G</span><strong id="longGVal">+0.00g</strong></div>
+            <div class="metric-box"><span class="label">LAT G</span><strong id="latGVal">+0.00g</strong></div>
+            <div class="metric-box"><span class="label">TOTAL</span><strong id="totalGVal">1.00g</strong></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>IMU Oscilloscope &amp; Filter Bridge</h2>
+            <div class="row gap-xs" id="waveModeGroup">
+              <button type="button" class="btn btn-xs active" data-wmode="vehicle">Vehicle</button>
+              <button type="button" class="btn btn-xs" data-wmode="raw">Raw</button>
+              <button type="button" class="btn btn-xs" data-wmode="compare">Filter</button>
+            </div>
+          </div>
+          <canvas id="oscilloscopeCanvas" width="400" height="225"></canvas>
+          <div class="filter-controls">
+            <div class="row gap-xs">
+              <button type="button" class="btn btn-xs engine-btn active" data-engine="STANDARD_LOW_PASS">Standard IIR</button>
+              <button type="button" class="btn btn-xs engine-btn" data-engine="ADAPTIVE_DUAL_POLE">Adaptive Dual-Pole</button>
+            </div>
+            <label class="alpha-label">α=<span id="alphaVal">0.24</span>
+              <input type="range" id="alphaSlider" min="0.08" max="0.80" step="0.02" value="0.24" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 2: TRIP FSM PIPELINE -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Trip Detection State Machine &amp; Stop Hysteresis</h2>
+          <span id="fsmReasonBadge" class="muted">Waiting for movement &gt;= 10 mph</span>
+        </div>
+        <div class="fsm-pipeline" id="fsmPipeline">
+          <div class="fsm-node active" data-state="IDLE">IDLE</div>
+          <span class="fsm-arrow">-&gt;</span>
+          <div class="fsm-node" data-state="VERIFYING">VERIFYING (5s)</div>
+          <span class="fsm-arrow">-&gt;</span>
+          <div class="fsm-node" data-state="RECORDING">RECORDING</div>
+          <span class="fsm-arrow">&lt;-&gt;</span>
+          <div class="fsm-node" data-state="STOP_PENDING">STOP PENDING</div>
+          <span class="fsm-arrow">-&gt;</span>
+          <div class="fsm-node" data-state="FINALIZING">FINALIZING</div>
+        </div>
+      </div>
+
+      <!-- ROW 3: VITALS, FIFO, WAKELOCK GATING, OFFLINE BUFFER + CODEC -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h2>Vitals, FIFO &amp; WakeLock Policy</h2>
+            <label class="toggle-inline">
+              <input type="checkbox" id="legacyWakeLockToggle" />
+              <span>Legacy WakeLock</span>
+            </label>
+          </div>
+
+          <div class="row gap-xs" style="margin-bottom:8px;">
+            <span class="label">Hardware FIFO:</span>
+            <button type="button" class="btn btn-xs fifo-btn active" data-fifo="0">0ms</button>
+            <button type="button" class="btn btn-xs fifo-btn" data-fifo="500">500ms</button>
+            <button type="button" class="btn btn-xs fifo-btn" data-fifo="2000">2000ms</button>
+          </div>
+
+          <div class="mini-grid-3">
+            <div class="metric-box"><span class="label">MANUAL LOCK</span><strong id="wakeLockVal" class="text-green">0.0s</strong></div>
+            <div class="metric-box"><span class="label">CPU WAKEUPS/M</span><strong id="wakeupsVal">3000</strong></div>
+            <div class="metric-box"><span class="label">VITALS RISK</span><strong id="vitalsRiskVal" class="text-green">SAFE</strong></div>
+          </div>
+          <p id="wakeLockDecisionText" class="mono muted" style="margin-top:6px;">
+            Denylist active: RECORDING -&gt; 0ms manual lock
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Offline Buffer &amp; Idempotent Sync</h2>
+            <span id="syncStatusPill" class="pill pill-green">ONLINE</span>
+          </div>
+          <div class="mini-grid-3">
+            <div class="metric-box"><span class="label">RING BUFFER</span><strong id="ringFillVal">0 / 1500</strong></div>
+            <div class="metric-box"><span class="label">QUEUED CHUNKS</span><strong id="queuedChunksVal">0</strong></div>
+            <div class="metric-box"><span class="label">CODEC RATIO</span><strong id="codecRatioVal">~74% saved</strong></div>
+          </div>
+          <p id="diagnosticsLine" class="mono muted" style="margin-top:6px;">
+            SafeExecutor faults: 0 | Quarantined files: 0
+          </p>
+        </div>
+      </div>
+
+      <!-- ROW 4: SAFETY SCORE + EVENT FEED + 5s WAVEFORM ZOOM -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2>5-Pillar Safety Score &amp; Event Waveform Zoom</h2>
+            <span class="muted">Click any detected event or Stage 2 impact verdict to inspect its 5s IMU trace</span>
+          </div>
+          <div class="score-badge" id="overallScoreBadge">100</div>
+        </div>
+
+        <div class="score-pillars" id="scorePillars">
+          <div class="pillar"><span>Braking</span><strong id="scoreBrake">100</strong></div>
+          <div class="pillar"><span>Accel</span><strong id="scoreAccel">100</strong></div>
+          <div class="pillar"><span>Corner</span><strong id="scoreCorner">100</strong></div>
+          <div class="pillar"><span>Speed</span><strong id="scoreSpeed">100</strong></div>
+          <div class="pillar"><span>Focus</span><strong id="scoreFocus">100</strong></div>
+        </div>
+
+        <div class="events-zoom-split">
+          <div id="eventsFeed" class="events-feed">
+            <p class="muted">Driving events &amp; Stage 2 crash/drop verdicts appear here.</p>
+          </div>
+          <div class="zoom-box">
+            <div class="row space-between" style="margin-bottom:4px;">
+              <span class="label" id="zoomTitle">EVENT 5s IMU ZOOM</span>
+              <span class="mono muted" id="zoomDetails">Select an event</span>
+            </div>
+            <canvas id="eventZoomCanvas" width="360" height="145"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 5: REMOTE SDK CONFIG & FEATURE FLAGS -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2>Remote SDK Config &amp; Feature Flags</h2>
+            <span class="muted">Stored in Cloud Storage &bull; Syncs on phone startup or Drive swipe-down refresh</span>
+          </div>
+          <span id="remoteConfigVerPill" class="pill pill-cyan">v1</span>
+        </div>
+
+        <div class="grid-2" style="gap:8px; margin-bottom:8px;">
+          <label class="label" style="display:flex; flex-direction:column; gap:4px;">
+            Auto-Start Verify (mph)
+            <input type="number" id="rcAutoStartMph" min="5" max="35" step="1" value="10" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--sub); color:var(--text);" />
+          </label>
+          <label class="label" style="display:flex; flex-direction:column; gap:4px;">
+            Auto-Stop Mode
+            <select id="rcAutoStopMode" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--sub); color:var(--text);">
+              <option value="SMART_5M">Smart 5m (300s)</option>
+              <option value="QUICK_90S">Quick 90s</option>
+              <option value="MANUAL_ONLY">Manual Only (Never Auto-Stop)</option>
+            </select>
+          </label>
+          <label class="label" style="display:flex; flex-direction:column; gap:4px;">
+            Stop Hysteresis (sec)
+            <input type="number" id="rcStopHystSec" min="0" max="600" step="30" value="300" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--sub); color:var(--text);" />
+          </label>
+          <label class="label" style="display:flex; flex-direction:column; gap:4px;">
+            Default FIFO Latency
+            <select id="rcFifoSelect" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--sub); color:var(--text);">
+              <option value="0">0ms Live</option>
+              <option value="500">500ms Batched</option>
+              <option value="2000">2000ms Batched</option>
+            </select>
+          </label>
+          <label class="label" style="display:flex; flex-direction:column; gap:4px;">
+            DSP Filter Engine
+            <select id="rcFilterSelect" style="padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--sub); color:var(--text);">
+              <option value="STANDARD_LOW_PASS">Standard Low-Pass</option>
+              <option value="ADAPTIVE_DUAL_POLE">Adaptive Dual-Pole</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row gap-sm" style="margin-bottom:8px;">
+          <label class="toggle-inline" style="color:var(--text);"><input type="checkbox" id="rcAutoDetect" checked /> Auto-Detect</label>
+          <label class="toggle-inline" style="color:var(--text);"><input type="checkbox" id="rcMotionPrompts" checked /> Motion Prompts</label>
+          <label class="toggle-inline" style="color:var(--text);"><input type="checkbox" id="rcAutoStopNonCar" /> Auto-Stop Walk/Bike</label>
+          <label class="toggle-inline"><input type="checkbox" id="rcLegacyWakeLock" /> Force Legacy WakeLock</label>
+        </div>
+
+        <div class="row space-between gap-sm">
+          <span id="remoteConfigStatus" class="mono muted">Swipe down on Android Drive tab to pull changes immediately.</span>
+          <button type="button" id="publishRemoteConfigBtn" class="btn btn-primary">Publish to Phones</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/sim-engine.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
